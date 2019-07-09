@@ -622,6 +622,42 @@ class CustomPairPotential : public PairPotentialBase {
     void to_json(json &) const override;
 };
 
+class CustomPeg : public PairPotentialBase {
+    double temperature = 300._K, cutoff = 0.9_nm;
+    double mie_m, mie_n, mie_epsilon, mie_sigma, mie_factor;
+    double gauss_mu, gauss_gamma, gauss_delta;
+    void init_mie();
+    void init_gauss();
+  public:
+    inline CustomPeg(const std::string &name="custom_peg") {
+	  PairPotentialBase::name = name;
+    }
+    void from_json(const json &j) override;
+    void to_json(json &j) const override;
+    double operator() (const Particle&, const Particle&, const Point &r) const override;
+}; // Custom PEG potential
+
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+TEST_CASE("[Faunus] CustomPairPotential") {
+    using doctest::Approx;
+    json j = R"({ "atomlist" : [
+                 {"A": { "q":1.0,  "r":3, "eps":0.1 }},
+                 {"B": { "q":-1.0, "r":4, "eps":0.05 }} ]})"_json;
+
+    atoms = j["atomlist"].get<decltype(atoms)>();
+
+    Particle a, b;
+    a = atoms[0];
+    b = atoms[1];
+
+    CustomPairPotential pot = R"({
+                "constants": { "kappa": 30, "lB": 7},
+                "function": "lB * q1 * q2 / (s1+s2) * exp(-kappa/r) * kT + pi"})"_json;
+
+    CHECK(pot(a, b, {0, 0, 2}) == Approx(-7 / (3.0 + 4.0) * std::exp(-30 / 2) * pc::kT() + pc::pi));
+}
+#endif
 
 /**
  * @brief Arbitrary potentials for specific atom types
@@ -659,7 +695,8 @@ class FunctorPotential : public PairPotentialBase {
                PrimitiveModelWCA,     // 9
                Hertz,                 // 10
                SquareWell,            // 11
-               Multipole              // 12
+               Multipole,             // 12
+               CustomPeg              // 13
                >
         potlist;
 

@@ -388,6 +388,49 @@ void Polarizability::from_json(const json &j) {
     }
 }
 
+void CustomPeg::init_mie() {
+    // computes temperature dependent parameters of the Mie potential
+    mie_m = 54.0 * std::pow(0.9943, temperature);
+    mie_n = 8.0;
+    mie_factor = mie_n / (mie_n - mie_m) * std::pow((mie_n / mie_m), (mie_m / (mie_n - mie_m)));
+    mie_sigma = 1.39e-4_nm * temperature + 0.367_nm;
+    mie_epsilon = 1.372_kJmol;
+}
+
+void CustomPeg::init_gauss() {
+    // computes temperature dependent parameters of the Gauss potential
+    gauss_mu = 2.9e-4_nm * temperature + 0.604_nm;
+    gauss_gamma = 0.4841_kJmol;
+    gauss_delta = 0.1064_nm;
+}
+
+void CustomPeg::from_json(const json &j) {
+    temperature = j.value("temperature", 300._K);
+    init_mie();
+    init_gauss();
+}
+
+void CustomPeg::to_json(json &j) const {
+    j = {{"temperature", temperature}};
+}
+
+double CustomPeg::operator()(const Particle&, const Particle&, const Point &r) const {
+    double mie_gauss = 0.0;
+    double rr = r.norm();
+    if (rr <= cutoff) {
+        double mie = mie_factor * mie_epsilon * (std::pow(mie_sigma / rr, mie_n) - std::pow(mie_sigma / rr, mie_m));
+        double gauss_exp = (rr - gauss_mu) / gauss_delta;
+        double gauss = gauss_gamma * std::exp(-gauss_exp * gauss_exp);
+        mie_gauss = mie + gauss;
+        // behind the Gaussian the potential is zero by the definition
+        if (rr > gauss_mu && mie_gauss < 0.0)
+            mie_gauss = 0.0;
+    }
+    return mie_gauss;
+}
+
+
+
 //----------------- FunctorPotential ---------------------
 
 void FunctorPotential::registerSelfEnergy(PairPotentialBase *pot) {
@@ -461,6 +504,8 @@ FunctorPotential::uFunc FunctorPotential::combineFunc(json &j) {
                                 have_dipole_self_energy = true;
                             }
                         }
+                        else if (it.key() == "custom_peg")
+                            _u = std::get<13>(potlist) = i;
                         // place additional potentials here...
                     } catch (std::exception &e) {
                         throw std::runtime_error(it.key() + ": " + e.what() + usageTip[it.key()]);
