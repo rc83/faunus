@@ -32,6 +32,8 @@ void from_json(const Faunus::json &j, std::shared_ptr<BondData> &b) {
                 b = std::make_shared<GromosTorsion>();
             else if (key == PeriodicDihedral().name())
                 b = std::make_shared<PeriodicDihedral>();
+            else if (key == ExcludeCustomPeg().name() )
+                b = std::make_shared<ExcludeCustomPeg>();
             else
                 throw std::runtime_error("unknown bond type: " + key);
             try {
@@ -61,6 +63,8 @@ void setBondEnergyFunction(std::shared_ptr<BondData> &b, const ParticleVector &p
         std::dynamic_pointer_cast<GromosTorsion>(b)->setEnergyFunction(p);
     else if (b->type() == BondData::PERIODIC_DIHEDRAL)
         std::dynamic_pointer_cast<PeriodicDihedral>(b)->setEnergyFunction(p);
+    else if (b->type() == BondData::EXCLUDE_CUSTOM_PEG)
+        std::dynamic_pointer_cast<ExcludeCustomPeg>(b)->setEnergyFunction(p);
     else {
         assert(false); // we should never reach here
     }
@@ -251,6 +255,25 @@ void PeriodicDihedral::setEnergyFunction(const ParticleVector &p) {
         return k * (1 + cos(n * angle - phi));
     };
 }
+
+int ExcludeCustomPeg::numindex() const { return 2; }
+
+std::shared_ptr<Faunus::Potential::BondData> Faunus::Potential::ExcludeCustomPeg::clone() const {
+    return std::make_shared<ExcludeCustomPeg>(*this);
+}
+
+void ExcludeCustomPeg::from_json(const Faunus::json &j) {
+    excluded_nonbonded = std::make_shared<CustomPeg>();
+    excluded_nonbonded->from_json(j);
+}
+
+void ExcludeCustomPeg::to_json(Faunus::json &j) const {
+    excluded_nonbonded->to_json(j);
+}
+
+BondData::Variant ExcludeCustomPeg::type() const { return BondData::EXCLUDE_CUSTOM_PEG; }
+
+std::string ExcludeCustomPeg::name() const { return "exclude_custom_peg"; }
 
 } // namespace Potential
 } // namespace Faunus
