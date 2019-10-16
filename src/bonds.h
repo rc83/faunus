@@ -3,7 +3,6 @@
 #include "core.h"
 #include "auxiliary.h"
 #include "particle.h"
-#include "potentials.h"
 
 namespace Faunus {
 
@@ -21,7 +20,7 @@ namespace Potential {
  * and potentially also the energy function (nullptr per default).
  */
 struct BondData {
-    enum Variant { HARMONIC = 0, FENE, FENEWCA, HARMONIC_TORSION, GROMOS_TORSION, PERIODIC_DIHEDRAL, EXCLUDE_CUSTOM_PEG, NONE };
+    enum Variant { HARMONIC = 0, FENE, FENEWCA, HARMONIC_TORSION, GROMOS_TORSION, PERIODIC_DIHEDRAL, NONE };
     std::vector<int> index;
     std::function<double(Geometry::DistanceFunction)> energy = nullptr; //!< potential energy (kT)
 
@@ -151,23 +150,6 @@ struct PeriodicDihedral : public BondData {
     PeriodicDihedral() = default;
     PeriodicDihedral(double k, double phi, double n, const std::vector<int> &index);
 };
-
-struct ExcludeCustomPeg : public BondData {
-    double temperature = 0;
-    int numindex() const override;
-    std::shared_ptr<BondData> clone() const override;
-    void from_json(const json &j) override;
-    void to_json(json &j) const override;
-    Variant type() const override;
-    std::string name() const override;
-    std::shared_ptr<CustomPeg> excluded_nonbonded = nullptr; // PairPotentialBase if it included functor operator ()
-
-    void setEnergyFunction(const ParticleVector &p) {
-        energy = [&](Geometry::DistanceFunction dist) {
-            return -1.0 * (*excluded_nonbonded)(p[index[0]], p[index[1]], dist(p[index[0]].pos, p[index[1]].pos));
-        };
-    }
-}; // end of ExcludeCustomPeg
 
 /*
  * Serialize to/from json
