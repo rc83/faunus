@@ -229,6 +229,16 @@ TEST_CASE("[Faunus] Hertz") {
     }
 }
 
+TEST_CASE("[Faunus] CustomPeg") {
+    CustomPeg peg(360.0);
+    CustomPeg peg_repulsive(300.0);
+    Point d1(5.0, 0, 0), d2(7.5, 0, 0), d3(10.0, 0, 0);
+    Particle p;
+    CHECK_EQ(peg(p, p, d1), Approx(-1.35_kJmol).epsilon(0.02));
+    CHECK_EQ(peg(p, p, d2), Approx(0.2_kJmol).epsilon(0.02));
+    CHECK_EQ(peg(p, p, d3), Approx(0.0_kJmol));
+    CHECK_GT(peg_repulsive(p, p, d2), 1.2 * peg(p, p, d2));
+}
 TEST_SUITE_END();
 
 TEST_CASE("[Faunus] CustomPairPotential") {
