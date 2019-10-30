@@ -629,8 +629,11 @@ class CustomPeg : public PairPotentialBase {
     void init_mie();
     void init_gauss();
   public:
-    inline CustomPeg(const std::string &name="custom_peg") {
-	  PairPotentialBase::name = name;
+    CustomPeg(const std::string &name = "custom_peg") { PairPotentialBase::name = name; }
+    CustomPeg(double temperature, const std::string &name = "custom_peg") : temperature(temperature) {
+        PairPotentialBase::name = name;
+        init_mie();
+        init_gauss();
     }
     void from_json(const json &j) override;
     void to_json(json &j) const override;
