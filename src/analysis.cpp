@@ -81,6 +81,48 @@ void Analysisbase::_from_json(const json &) {}
 
 int Analysisbase::getNumberOfSteps() const { return number_of_steps; }
 
+SASAAnalysis::SASAAnalysis(const json &j, Energy::Hamiltonian &pot) {
+    from_json(j);
+    name = "sasa_analysis";
+
+    auto sasa_energies = pot.find<Energy::SASAEnergy>();
+    if(sasa_energies.size() == 1) {
+        sasa_energy_ptr = sasa_energies.front();
+    } else  {
+        faunus_logger->error("Giving up SASA analysis: multiple or none SASA energy provided.");
+    }
+
+    auto fn_csv = MPI::prefix + j.at("file").get<std::string>();
+    fout_csv.open(fn_csv);
+    if (!fout_csv.is_open()) {
+        faunus_logger->error("Unable to open file {} for SASA analysis", fn_csv);
+    }
+    fout_csv << std::fixed << std::setprecision(2);
+}
+
+SASAAnalysis::~SASAAnalysis() {
+    if (fout_csv.is_open()) {
+        fout_csv.close();
+    }
+}
+
+void SASAAnalysis::_sample() {
+    if (auto sasa = sasa_energy_ptr.lock()) {
+        sasa_avg += sasa->sasa_total;
+        energy_avg += sasa->sasa_energy;
+        if (fout_csv.is_open()) {
+            fout_csv << getNumberOfSteps() << " " << sasa->sasa_total / (1.0_angstrom * 1.0_angstrom) << " "
+                     << sasa->sasa_energy / 1.0_kJmol << std::endl;
+        }
+    }
+}
+
+void SASAAnalysis::_to_json(json &j) const {
+    j = {{u8::bracket("SASA"), sasa_avg.avg() / (1.0_angstrom * 1.0_angstrom)},
+         {u8::bracket("energy"), energy_avg.avg() / 1.0_kJmol}};
+    _roundjson(j, 5); // set json output precision
+}
+
 void SystemEnergy::normalize() {
     double sum = energy_histogram.sumy();
     for (auto &i : energy_histogram.getMap()) {
@@ -477,6 +519,8 @@ CombinedAnalysis::CombinedAnalysis(const json &j, Space &spc, Energy::Hamiltonia
                             emplace_back<SlicedDensity>(it.value(), spc);
                         else if (it.key() == "systemenergy")
                             emplace_back<SystemEnergy>(it.value(), pot);
+                        else if (it.key() == "sasa")
+                            emplace_back<SASAAnalysis>(it.value(), pot);
                         else if (it.key() == "virtualvolume")
                             emplace_back<VirtualVolume>(it.value(), spc, pot);
                         else if (it.key() == "virtualtranslate")
@@ -1187,6 +1231,7 @@ void PolymerShape::_sample() {
                 Rs2[i] += rs * rs;
             }
 }
+
 PolymerShape::PolymerShape(const json &j, Space &spc) : spc(spc) {
     from_json(j);
     name = "Polymer Shape";
