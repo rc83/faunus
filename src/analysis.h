@@ -49,6 +49,8 @@ class Analysisbase {
     void from_json(const json &);  //!< configure from json object
     void to_disk();                //!< Save data to disk (if defined)
     virtual void sample();
+    Analysisbase(std::string name, int steps, int nskip);
+    Analysisbase() = default;
     virtual ~Analysisbase() = default;
 };
 
@@ -516,6 +518,7 @@ class PolymerShapeNew : public Analysisbase {
     Eigen::Vector3d rg2PrincipalMoments(Space::Tgroup &g);
     void _sample() override;
   public:
+    PolymerShapeNew(Space &spc, std::vector<int> molecule_ids, int steps = 1, int nskip = 0);
     PolymerShapeNew(const json &j, Space &spc);
     ~PolymerShapeNew();
 };
@@ -537,6 +540,7 @@ class QRtraj : public Analysisbase {
     QRtraj(const json &j, Space &spc);
 };
 
+//fixme refactor composition over inheritance: BasePointerVector
 struct CombinedAnalysis : public BasePointerVector<Analysisbase> {
     CombinedAnalysis(const json &j, Space &spc, Energy::Hamiltonian &pot);
     void sample();

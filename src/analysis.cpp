@@ -16,6 +16,8 @@ namespace Analysis {
 
 void to_json(json &j, const Analysisbase &base) { base.to_json(j); }
 
+Analysisbase::Analysisbase(std::string name, int steps, int nskip) : steps(steps), nskip(nskip), name(name) {}
+
 /*
  * This is always called by the destructor, but may be called
  * any number of times earlier.
@@ -1059,6 +1061,9 @@ MultipoleMoments::MultipoleMoments(const json &j, Space &spc) : spc(spc) {
 }
 
 // =============== PolymerShape ===============
+
+PolymerShapeNew::PolymerShapeNew(Space &spc, std::vector<int> molecule_ids, int steps, int nskip)
+    : Analysisbase("polymer_shape", steps, nskip), spc(spc), ids(molecule_ids) {}
 
 PolymerShapeNew::PolymerShapeNew(const json &j, Space &spc) : spc(spc) {
     from_json(j);
