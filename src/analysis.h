@@ -506,6 +506,20 @@ class PolymerShape : public Analysisbase {
     PolymerShape(const json &j, Space &spc);
 };
 
+class PolymerShapeNew : public Analysisbase {
+    Space &spc;
+    std::vector<int> ids; // molecule id's to analyse
+    std::ofstream fout_csv;
+
+    double re2(Space::Tgroup &g);
+    double rg2(Space::Tgroup &g);
+    Eigen::Vector3d rg2PrincipalMoments(Space::Tgroup &g);
+    void _sample() override;
+  public:
+    PolymerShapeNew(const json &j, Space &spc);
+    ~PolymerShapeNew();
+};
+
 /**
  * @brief "Trajectory" with charge and radius, only, for all (active, inactive) particles
  *

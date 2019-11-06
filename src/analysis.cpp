@@ -425,6 +425,8 @@ CombinedAnalysis::CombinedAnalysis(const json &j, Space &spc, Energy::Hamiltonia
                             emplace_back<MultipoleDistribution>(it.value(), spc);
                         else if (it.key() == "polymershape")
                             emplace_back<PolymerShape>(it.value(), spc);
+                        else if (it.key() == "polymershapenew")
+                            emplace_back<PolymerShapeNew>(it.value(), spc);
                         else if (it.key() == "qrfile")
                             emplace_back<QRtraj>(it.value(), spc);
                         else if (it.key() == "reactioncoordinate")
@@ -1058,6 +1060,78 @@ MultipoleMoments::MultipoleMoments(const json &j, Space &spc) : spc(spc) {
 
 // =============== PolymerShape ===============
 
+PolymerShapeNew::PolymerShapeNew(const json &j, Space &spc) : spc(spc) {
+    from_json(j);
+    name = "polymer_shape";
+    auto names = j.at("molecules").get<std::vector<std::string>>(); // molecule names
+    ids = names2ids(molecules, names);                              // names --> molids
+
+    auto fn_csv = MPI::prefix + j.at("file").get<std::string>();
+    fout_csv.open(fn_csv);
+    if (!fout_csv.is_open()) {
+        faunus_logger->error("Unable to open file {} for polymer shape analysis", fn_csv);
+    }
+    fout_csv << std::fixed << std::setprecision(2); // Rg ~ pm
+}
+
+PolymerShapeNew::~PolymerShapeNew() {
+    if (fout_csv.is_open()) {
+        fout_csv.close();
+    }
+}
+
+double PolymerShapeNew::re2(Space::Tgroup &g) {
+    // fixme make the molecule whole in pbc; otherwise re2 > (box/2)^2 is impossible
+    // fixme front() and back() methods on the group
+    double re2 = spc.geo.sqdist(g.begin()->pos, (g.end()-1)->pos);
+    return re2;
+//
+//    Point dist = {0, 0, 0};
+//    const std::vector<int>& path = molecules.at(g.id).endToEnd();
+//    auto path_it = path.begin();
+//    if(path_it != path.end()) {
+//        auto positions = g.positions();
+//        auto path_begin_it = path_it;
+//        for(auto path_end_it = std::next(path_begin_it); path_end_it != path.end(); path_begin_it = path_end_it++) {
+//            const int b_ndx = *path_begin_it;
+//            const int e_ndx = *path_end_it;
+//            dist += spc.geo.vdist(positions[e_ndx], positions[b_ndx]);
+//        }
+//    }
+//    // check distance < box
+//    std::cout << "simple: " << re2 << "; contour: " << dist.squaredNorm() <<  std::endl;
+//    return dist.squaredNorm();
+}
+
+double PolymerShapeNew::rg2(Space::Tgroup &g) {
+    const auto gyration_tensor = Geometry::gyration(g.begin(), g.end(), g.cm, spc.geo.getBoundaryFunc());
+    return gyration_tensor.trace();
+}
+
+Eigen::Vector3d PolymerShapeNew::rg2PrincipalMoments(Space::Tgroup &g) {
+    const auto gyration_tensor = Geometry::gyration(g.begin(), g.end(), g.cm, spc.geo.getBoundaryFunc());
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(gyration_tensor);
+    const Eigen::RowVector3d principal_moments = solver.eigenvalues();
+    return principal_moments;
+}
+
+void PolymerShapeNew::_sample() {
+    if (fout_csv.is_open()) {
+        for (int i : ids) {
+            for (auto &g : spc.findMolecules(i)) {
+                if (g.size() > 1) {
+                    auto rg2_principal = rg2PrincipalMoments(g);
+                    fout_csv
+                        << re2(g) / (1.0_angstrom * 1.0_angstrom) << " "
+                        << rg2_principal.sum() / (1.0_angstrom * 1.0_angstrom) << " "
+                        << rg2_principal.transpose() / (1.0_angstrom * 1.0_angstrom);
+                }
+            }
+        }
+        fout_csv << std::endl;
+    }
+}
+
 void PolymerShape::_to_json(json &j) const {
     using namespace u8;
     json &k = j["molecules"];
@@ -1073,6 +1147,7 @@ void PolymerShape::_to_json(json &j) const {
             {rootof + bracket("Rgxyz" + squared),
              {sqrt(Rg2x.at(i).avg()), sqrt(Rg2y.at(i).avg()), sqrt(Rg2z.at(i).avg())}}};
 }
+
 Point PolymerShape::vectorgyrationRadiusSquared(typename Space::Tgroup &g) const {
     double sum = 0;
     Point t, r2(0, 0, 0);
@@ -1088,6 +1163,7 @@ Point PolymerShape::vectorgyrationRadiusSquared(typename Space::Tgroup &g) const
     assert(sum > 0 && "Zero molecular weight not allowed.");
     return r2 * (1. / sum);
 }
+
 void PolymerShape::_sample() {
     for (int i : ids)
         for (auto &g : spc.findMolecules(i))
@@ -1113,6 +1189,9 @@ PolymerShape::PolymerShape(const json &j, Space &spc) : spc(spc) {
     auto names = j.at("molecules").get<std::vector<std::string>>(); // molecule names
     ids = names2ids(molecules, names);                              // names --> molids
 }
+
+// =============== AtomProfile ===============
+
 void AtomProfile::_from_json(const json &j) {
     ref = j.value("origo", Point(0, 0, 0));
     dir = j.value("dir", dir);
