@@ -5,6 +5,7 @@
 #include "scatter.h"
 #include "reactioncoordinate.h"
 #include "auxiliary.h"
+#include "energy.h"
 #include <set>
 
 namespace Faunus {
@@ -220,6 +221,19 @@ class SystemEnergy : public Analysisbase {
   public:
     SystemEnergy(const json &, Energy::Hamiltonian &);
 }; //!< Save system energy to disk. Keywords: `nstep`, `file`.
+
+class SASAAnalysis : public Analysisbase {
+    std::ofstream fout_csv;
+    std::weak_ptr<Energy::SASAEnergy> sasa_energy_ptr;
+    Average<double> sasa_avg, energy_avg;
+
+    void _sample() override;
+    void _to_json(json &) const override;
+
+  public:
+    SASAAnalysis(const json &j, Energy::Hamiltonian &pot);
+    ~SASAAnalysis();
+};
 
 /**
  * @brief Checks if system is sane. If not, abort program.
