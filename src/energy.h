@@ -919,13 +919,14 @@ template <typename Tpairpot> class NonbondedCached : public Nonbonded<Tpairpot> 
  */
 class SASAEnergy : public Energybase {
   public:
-    std::vector<double> sasa, radii, positions;
+    double sasa_total = 0, sasa_energy = 0; // cached values from last energy() call; for analysis
+    Average<double> sasa_avg;               // average surface area
 
   private:
     Space &spc;
-    double cosolute_concentration;             // co-solute concentration (mol/l)
+    double cosolute_concentration; // co-solute concentration (mol/l)
     freesasa_parameters parameters;
-    Average<double> avgArea; // average surface area
+    std::vector<double> sasa, radii, positions;
 
     void updatePositions(const ParticleVector &p);
     void updateRadii(const ParticleVector &p);

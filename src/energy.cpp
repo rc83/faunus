@@ -440,11 +440,9 @@ void Hamiltonian::sync(Energybase *basePtr, Change &change) {
 }
 
 #ifdef ENABLE_FREESASA
-
 SASAEnergy::SASAEnergy(Space &spc, double cosolute_concentration, double probe_radius)
-    : spc(spc), cosolute_concentration(cosolute_concentration)
-{
-    name = "sasa"; // todo predecessor constructor
+    : spc(spc), cosolute_concentration(cosolute_concentration) {
+    name = "sasa";                              // todo predecessor constructor
     cite = "doi:10.12688/f1000research.7931.1"; // todo predecessor constructor
     parameters = freesasa_default_parameters;
     parameters.probe_radius = probe_radius;
@@ -457,26 +455,25 @@ SASAEnergy::SASAEnergy(const json &j, Space &spc)
 void SASAEnergy::updatePositions([[gnu::unused]] const ParticleVector &p) {
     assert(p.size() == spc.positions().size());
     positions.clear();
-    for(auto pos: spc.positions()) {
+    for (auto pos : spc.positions()) {
         auto xyz = pos.data();
-        positions.insert(positions.end(), xyz, xyz+3);
+        positions.insert(positions.end(), xyz, xyz + 3);
     }
 }
 
 void SASAEnergy::updateRadii(const ParticleVector &p) {
     radii.resize(p.size());
-    std::transform(p.begin(), p.end(), radii.begin(),
-                   [](auto &a) { return atoms[a.id].sigma * 0.5; });
+    std::transform(p.begin(), p.end(), radii.begin(), [](auto &a) { return atoms[a.id].sigma * 0.5; });
 }
 
 void SASAEnergy::updateSASA(const ParticleVector &p, const Change &) {
     updateRadii(p);
     updatePositions(p);
     auto result = freesasa_calc_coord(positions.data(), radii.data(), p.size(), &parameters);
-    if(result) {
+    if (result) {
+        sasa_total = result->total;
         assert(result->n_atoms == p.size());
-        sasa.clear();
-        sasa.insert(sasa.begin(), result->sasa, result->sasa + result->n_atoms); // copy
+        sasa.assign(result->sasa, result->sasa + result->n_atoms);
         assert(sasa.size() == p.size());
         freesasa_result_free(result);
     } else {
@@ -488,7 +485,7 @@ void SASAEnergy::init() {
     auto box = spc.geo.getLength();
     auto box_pbc = box;
     spc.geo.boundary(box_pbc);
-    if(box_pbc != box) {
+    if (box_pbc != box) {
         faunus_logger->error("PBC applied, but PBC not implemented for FreeSASA. Expect unphysical results.");
     }
     Change change;
@@ -497,20 +494,22 @@ void SASAEnergy::init() {
 }
 
 double SASAEnergy::energy(Change &change) {
-    double u = 0, A = 0;
     updateSASA(spc.p, change); // ideally we want
+    sasa_avg += sasa_total;    // sample average area for accepted conformations
+    sasa_energy = 0;
     for (size_t i = 0; i < spc.p.size(); ++i) {
         auto &a = atoms[spc.p[i].id];
-        u += sasa[i] * (a.tension + cosolute_concentration * a.tfe);
-        A += sasa[i];
+        sasa_energy += sasa[i] * (a.tension + cosolute_concentration * a.tfe);
     }
-    avgArea += A; // sample average area for accepted confs.
-    return u;
+    return sasa_energy;
 }
 
 void SASAEnergy::sync(Energybase *basePtr, Change &c) {
     auto other = dynamic_cast<decltype(this)>(basePtr);
     if (other) {
+        sasa_total = other->sasa_total;
+        sasa_energy = other->sasa_energy;
+        sasa_avg = other->sasa_avg;
         if (c.all || c.dV) {
             radii = other->radii;
             positions = other->positions;
@@ -522,8 +521,8 @@ void SASAEnergy::sync(Energybase *basePtr, Change &c) {
                     int i = j + offset;
                     radii[i] = other->radii[i];
                     sasa[i] = other->sasa[i];
-                    for(size_t k = 0; k < 3; ++k) {
-                        positions[3*i + k] = spc.positions()[i][k];
+                    for (size_t k = 0; k < 3; ++k) {
+                        positions[3 * i + k] = spc.positions()[i][k];
                     }
                 }
             }
@@ -535,7 +534,7 @@ void SASAEnergy::to_json(json &j) const {
     using namespace u8;
     j["molarity"] = cosolute_concentration / 1.0_molar;
     j["radius"] = parameters.probe_radius / 1.0_angstrom;
-    j[bracket("SASA") + "/" + angstrom + squared] = avgArea.avg() / 1.0_angstrom;
+    j[bracket("SASA") ] = sasa_avg.avg() / (1.0_angstrom * 1.0_angstrom);
     _roundjson(j, 5); // set json output precision
 }
 #endif
