@@ -200,7 +200,7 @@ template <bool eigenopt = false /** use Eigen matrix ops where possible */> stru
             for (auto g : spc->groups)
                 for (auto i : g)
                     qr += i.charge * i.pos;
-        else if (change.groups.size() > 0) {
+        else if (! change.groups.empty()) {
             for (auto cg : change.groups) {
                 auto g = spc->groups.at(cg.index);
                 for (auto i : cg.atoms)
@@ -296,7 +296,7 @@ template <class Policy = PolicyIonIon<>> class Ewald : public Energybase {
                     data.update(spc.geo.getLength());
                     policy.updateComplex(data); // update all (expensive!)
                 } else {
-                    if (change.groups.size() > 0)
+                    if (! change.groups.empty())
                         policy.updateComplex(data, change);
                 }
             }
@@ -421,7 +421,7 @@ template <typename Tpairpot> class Nonbonded : public Energybase {
         return true;
     } //!< true if group<->group interaction can be skipped
 
-    template <typename T> inline double i2i(const T &a, const T &b) {
+    template <typename T> inline double i2i(const T &a, const T &b) const {
         assert(&a != &b && "a and b cannot be the same particle");
         return pairpot(a, b, spc.geo.vdist(a.pos, b.pos));
     }
