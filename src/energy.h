@@ -517,7 +517,7 @@ template <typename Tpairpot> class Nonbonded : public Energybase {
             for (auto &g : spc.groups)                   // i with all other *active* particles
                 for (auto &j : g)                        // (this will include only active particles)
                     i_interact_with_these.push_back(&j); // u += i2i(i, j);
-#pragma omp parallel for reduction(+ : u) if (omp_enable and omp_i2all)
+//#pragma omp parallel for reduction(+ : u) if (omp_enable and omp_i2all)
         for (size_t k = 0; k < i_interact_with_these.size(); k++)
             u += i2i(i, *i_interact_with_these[k]);
         return u;
@@ -537,7 +537,7 @@ template <typename Tpairpot> class Nonbonded : public Energybase {
         double u = 0;
         if (not cut(g1, g2)) {
             if (index.empty() && jndex.empty()) // if index is empty, assume all in g1 have changed
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_p2p)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_p2p)
                 for (size_t i = 0; i < g1.size(); i++)
                     for (size_t j = 0; j < g2.size(); j++)
                         u += i2i(*(g1.begin() + i), *(g2.begin() + j));
@@ -658,7 +658,7 @@ template <typename Tpairpot> class Nonbonded : public Energybase {
         if (change) {
             // there's a change in system volume
             if (change.dV) {
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
                 for (auto i = spc.groups.begin(); i < spc.groups.end(); ++i) {
                     for (auto j = i; ++j != spc.groups.end();)
                         u += g2g(*i, *j);
@@ -670,7 +670,7 @@ template <typename Tpairpot> class Nonbonded : public Energybase {
 
             // did everything change?
             if (change.all) {
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
                 for (auto i = spc.groups.begin(); i < spc.groups.end(); ++i) {
                     for (auto j = i; ++j != spc.groups.end();)
                         u += g2g(*i, *j);
@@ -692,7 +692,7 @@ template <typename Tpairpot> class Nonbonded : public Energybase {
                 // more atoms moved
                 auto &g1 = spc.groups.at(d.index);
                 // for (auto &g2 : spc.groups)
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
                 for (size_t i = 0; i < spc.groups.size(); i++) {
                     auto &g2 = spc.groups[i];
                     if (&g1 != &g2)
@@ -765,7 +765,7 @@ template <typename Tpairpot> class Nonbonded : public Energybase {
                 for (auto i : moved)
                     for (auto j : fixed)
                         pairs[cnt++] = {i, j};
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (omp_enable and omp_g2g)
                 for (size_t i = 0; i < pairs.size(); i++)
                     u += g2g(spc.groups[pairs[i].first], spc.groups[pairs[i].second]);
             } else
@@ -843,7 +843,7 @@ template <typename Tpairpot> class NonbondedCached : public Nonbonded<Tpairpot> 
         if (change) {
 
             if (change.all || change.dV) {
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (this->omp_enable)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (this->omp_enable)
                 for (auto i = base::spc.groups.begin(); i < base::spc.groups.end(); ++i) {
                     for (auto j = i; ++j != base::spc.groups.end();)
                         u += g2g(*i, *j);
@@ -856,7 +856,7 @@ template <typename Tpairpot> class NonbondedCached : public Nonbonded<Tpairpot> 
                 auto &d = change.groups[0];
                 auto &g1 = base::spc.groups.at(d.index);
 
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (this->omp_enable and this->omp_g2g)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (this->omp_enable and this->omp_g2g)
                 for (size_t i = 0; i < spc.groups.size(); i++) {
                     auto &g2 = spc.groups[i];
                     if (&g1 != &g2)
@@ -882,7 +882,7 @@ template <typename Tpairpot> class NonbondedCached : public Nonbonded<Tpairpot> 
                 for (auto i : moved)
                     for (auto j : fixed)
                         pairs[cnt++] = {i, j};
-#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (this->omp_enable and this->omp_g2g)
+//#pragma omp parallel for reduction(+ : u) schedule(dynamic) if (this->omp_enable and this->omp_g2g)
                 for (size_t i = 0; i < pairs.size(); i++)
                     u += g2g(spc.groups[pairs[i].first], spc.groups[pairs[i].second]);
             } else
