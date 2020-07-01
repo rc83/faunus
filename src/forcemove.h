@@ -185,5 +185,18 @@ class LangevinDynamics : public ForceMoveBase {
     void _from_json(const json &j) override;
 };
 
+/**
+ * @brief Molecular dynamics move using Newton equation of motion
+ */
+//class NewtonMove : public ForceMoveBase {
+//  protected:
+//    std::shared_ptr<ThermostatBase> thermostat;
+//
+//  public:
+//    NewtonMove(Space &spc, std::shared_ptr<IntegratorBase> integrator, std::shared_ptr<ThermostatBase> thermostat,
+//               unsigned int nsteps = 0);
+//    NewtonMove(Space &spc, Energy::Energybase &energy, const json &j);
+//};
+
 } // end of namespace Move
 } // end of namespace Faunus
