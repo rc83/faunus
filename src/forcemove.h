@@ -35,6 +35,64 @@ class NormalRandomVector {
 
 
 /**
+ * @brief Base class for MD thermostats
+ *
+ * To add a new derived thermostat include it into ThermostatType as well as JSON mapping and extend makeThermostat
+ * static factory method.
+ */
+class ThermostatBase {
+  public:
+    enum ThermostatType { UNDEFINED, ANDERSEN, LANGEVIN, NVE }; // CANONICALVSCALE, NOSEHOVERCHAINS
+  protected:
+    ThermostatType type;
+    ThermostatBase(ThermostatType type);
+
+  public:
+    static std::shared_ptr<ThermostatBase> makeThermostat(ThermostatType type);
+    static std::shared_ptr<ThermostatBase> makeThermostat(const json &j);
+
+    virtual void apply(ParticleVector &particles, PointVector &velocities) = 0;
+    virtual void from_json(const json &j) = 0;
+    virtual void to_json(json &j) const = 0;
+    virtual ~ThermostatBase() = default;
+};
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ThermostatBase::ThermostatType, {
+    {ThermostatBase::UNDEFINED, "undefined"},
+    {ThermostatBase::ANDERSEN, "andersen"},
+    {ThermostatBase::LANGEVIN, "langevin"},
+    {ThermostatBase::NVE, "nve"},
+})
+
+void from_json(const json &j, ThermostatBase &i);
+void to_json(json &j, const ThermostatBase &i);
+
+// todo
+struct NVEThermostat : public ThermostatBase {
+    NVEThermostat() : ThermostatBase(ThermostatBase::NVE){};
+    void from_json(const json &) override{};
+    void to_json(json &) const override{};
+    void apply(Space::Tpvec &, PointVector &) override{};
+};
+
+// todo
+struct LangevinThermostat : public ThermostatBase {
+    LangevinThermostat() : ThermostatBase(ThermostatBase::LANGEVIN){};
+    void from_json(const json &) override{};
+    void to_json(json &) const override{};
+    void apply(Space::Tpvec &, PointVector &) override{};
+};
+
+class AndersenThermostat : public ThermostatBase {
+    double nu; //!< collision frequency
+  public:
+    AndersenThermostat(double nu = 0.0);
+    void apply(ParticleVector &particles, PointVector &velocities) override;
+    void from_json(const json &) override;
+    void to_json(json &) const override;
+};
+
+/**
  * @brief Base class for dynamics integrators
  *
  * Integrators progress the simulation in time steps. Positions and velocities of the particles as well as forces

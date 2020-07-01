@@ -17,6 +17,77 @@ static inline double meanSquareSpeedComponent(T mass) {
     return (pc::kT() / mass * 1.0_kg) * ((1.0_m * 1.0_m) / (1.0_s * 1.0_s));
 }
 
+/**
+ * @brief Generate standard normal random vector
+ */
+class NormalRandomVector {
+    std::normal_distribution<double> normal_distribution;
+
+  public:
+    NormalRandomVector(double mean = 0.0, double stddev = 1.0) : normal_distribution(mean, stddev){};
+    inline Point operator()() {
+        return Point(normal_distribution(random.engine),
+                     normal_distribution(random.engine),
+                     normal_distribution(random.engine));
+    };
+};
+
+NormalRandomVector random_vector; //!< standard normal random vector generator
+
+// =============== ThermostatBase ===============
+
+std::shared_ptr<ThermostatBase> ThermostatBase::makeThermostat(ThermostatType type) {
+    std::shared_ptr<ThermostatBase> thermostat_ptr;
+    switch (type) {
+    case ANDERSEN:
+        thermostat_ptr = std::make_shared<AndersenThermostat>();
+        break;
+    default:
+        throw std::invalid_argument("unknown thermostat");
+    }
+    return thermostat_ptr;
+}
+
+std::shared_ptr<ThermostatBase> ThermostatBase::makeThermostat(const json &j) {
+    if (! j.is_object() || j.size() != 1) {
+        throw std::runtime_error("bad syntax for thermostat");
+    }
+    const json j_name = j.begin().key();
+    auto thermostat_ptr = makeThermostat(j_name.get<ThermostatBase::ThermostatType>());
+    thermostat_ptr->from_json(j.begin().value());
+    return thermostat_ptr;
+}
+
+ThermostatBase::ThermostatBase(ThermostatType type) : type(type) {}
+
+void from_json(const json &j, ThermostatBase &i) { i.from_json(j); }
+void to_json(json &j, const ThermostatBase &i) { i.to_json(j); }
+
+// =============== AndersenThermostat ===============
+
+AndersenThermostat::AndersenThermostat(double nu) : ThermostatBase(ThermostatBase::ANDERSEN), nu(nu) {}
+
+void AndersenThermostat::from_json(const json &j) {
+    nu = j.at("nu").get<double>();  // fixme units
+}
+
+void AndersenThermostat::to_json(json &j) const {
+    j = {{type, {{"nu", nu}}}};  // fixme units
+}
+
+void AndersenThermostat::apply(ParticleVector &particles, PointVector &velocities) {
+    std::uniform_int_distribution<std::size_t> uniform_int_distribution(0, velocities.size());
+    const auto collisions_cnt = uniform_int_distribution(random.engine); // number of particles to undergo collision
+
+    std::set<std::size_t> collisions; // particle indices undergoing collision
+    while (collisions.size() < collisions_cnt) {
+        auto i = random.range(0, velocities.size() - 1);
+        if (collisions.insert(i).second) { // index did not exist in the set before
+            velocities[i] = random_vector() * sqrt(pc::kT() / Faunus::atoms[particles[i].id].mw);
+        }
+    }
+}
+
 // =============== IntegratorBase  ===============
 
 IntegratorBase::IntegratorBase(Space &spc, Energy::Energybase &energy) : spc(spc), energy(energy) {}
