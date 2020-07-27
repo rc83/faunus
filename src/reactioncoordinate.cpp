@@ -194,7 +194,7 @@ MoleculeProperty::MoleculeProperty(const json &j, Space &spc) : ReactionCoordina
             return std::sqrt(spc.geo.sqdist(spc.groups[i].begin()->pos, (spc.groups[i].end() - 1)->pos));
         };
 
-    else if (property == "Rg")
+    else if (property == "Rg" || property == "gyration")
         f = [&spc, i = index]() {
             assert(spc.groups[i].size() > 1);
             auto S = Geometry::gyration(spc.groups[i].begin(), spc.groups[i].end(), spc.groups[i].cm, spc.geo.getBoundaryFunc());
